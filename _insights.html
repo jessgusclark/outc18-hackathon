@@ -1,0 +1,202 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title>Directory Insights</title>
+		<!-- Latest compiled and minified CSS -->
+		<script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+		
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+		<link rel="stylesheet" type="text/css" href="directory-insights.css" />
+
+	</head>
+	
+	<body>
+	
+		
+		<script>
+		
+			var apiHost = "http://a.cms.omniupdate.com";
+			var starting_directory = "/faculty/physics/";	// FROM XML
+			var site = "outc18";							// FROM XML
+			
+			var known = 0;
+			var potential = 0;
+			var likely = 0;
+			
+			var errorList = [];
+			
+			$(document).ready(function(){
+				
+				logIntoOUCampus();
+				
+				$(".directory").html(starting_directory);
+			});
+			
+			function logIntoOUCampus(){
+				
+				console.log("Logging In");
+				
+				callData = {
+					skin: 'outc18',
+					account: 'workshop2',
+					username: 'insights',
+					password: ''
+				}
+				
+				$.ajax({
+					method: 'POST',
+					url: apiHost + '/authentication/login',
+					data: callData
+					
+				}).done(function(data){
+					console.log("Success", data);
+					loopFiles(data.gadget_token, starting_directory);
+				}).fail(function(data){
+					console.log("FAIL!", data)
+				});
+			}
+			
+			function loopFiles(token, directory){
+				
+				console.log("looping files in:", directory);
+				
+				callData = {
+					site: site,
+					path: directory,
+					authorization_token: token
+				}
+				
+				$.ajax({
+					method: 'GET',
+					url: apiHost + '/files/list',
+					data: callData
+					
+				}).done(function(data){
+					console.log("loop!!!", data.entries);
+					var i = 0;
+					data.entries.forEach(function(item){
+						//console.log(item.staging_path.indexOf('.pcf'));
+						if (item.staging_path.indexOf('.pcf') !== -1){
+							
+							real_http_path = item.http_path.replace(".pcf", ".html");
+							//errorList[i] = real_http_path;
+							
+							// Get reports for page:
+							getAccessibilityReport(token, i, real_http_path);
+							
+							i++;
+						}
+										 
+						
+					});
+					
+				}).fail(function(data){
+					console.log("loop FAIL!", data)
+				}).done(function(){
+					updateNumbers();
+				});
+					
+			}
+		
+			function getAccessibilityReport(token, increment, http_path){
+				//http://a.cms.omniupdate.com/insights/page_accessibility?site=outc18&url=http%3A%2F%2Fworkshop2.outc18.com%2Fathletics%2Frecreation.html
+				//console.log("*********************************");
+				//console.log("Accessibility Report", http_path);
+				callData = {
+					site: site,
+					url: real_http_path,
+					authorization_token: token
+				}
+				
+				$.ajax({
+					method: 'GET',
+					url: apiHost + '/insights/page_accessibility',
+					data: callData
+					
+				}).done(function(data){
+					console.log("Page Accessibility", data);
+					
+					//errorList[increment] = [];
+					//errorList.push(data);
+					
+					
+					editLink = data.path.replace("http://workshop2.outc18.com/").replace(".html", ".pcf"); 'http://a.cms.omniupdate.com/10/#outc18/workshop2/outc18/previewedit/athletics/gophers.pcf';
+					
+					htmlData = '<tr><td class="page-path"><a class="direct-link" href="' + editLink + '" target="_blank">' + data.path + '</a></td>' +
+						'<td class="page-errors-known">' + data.known.length + '</td>'+
+						'<td class="page-errors-likely">' + data.likely.length + '</td>'+
+						'<td class="page-errors-potential">' + data.potential.length + '</td>'+
+					'</tr>';
+					
+					known += data.known.length;
+					likely += data.likely.length;
+					potential += data.potential.length;
+					
+					
+					updateNumbers();
+					
+					$('.results').append(htmlData);
+					
+					
+				}).fail(function(data){
+					console.log("accessibility FAIL!", data)
+				});
+				
+			}
+			
+			
+			function updateNumbers(){
+				console.log("UPDATE");
+				$('#total-known-errors').html("Known<br/>" + known);
+				$('#total-likely-errors').html("Likely<br/>" + likely);
+				$('#total-potential-errors').html("Potential<br/>" + potential);
+			}
+			
+		</script>
+		
+		<header>
+			<img src="/_resources/images/gu-logo.png" alt="Gallena University">
+		</header>
+
+		<h1><span id="directory"></span> Directory Insights</h1>
+		<div id="date-ran">Last Report: <span>March 28th</span></div>
+		<p class="intro">Directory: <span class="directory">...</span> </p>
+		<section>
+			<div class="container-fluid">
+				<!--<div class="row">
+					<div class="col-md-4" id="percentage-errors">24%</div>
+					<div class="col-md-4" id="total-error-number">24</div>
+					<div class="col-md-4" id="total-pages-scanned">100</div>
+				</div>-->
+				<div class="row">
+					<div class="col-md-4" id="total-known-errors">0</div>
+					<div class="col-md-4" id="total-likely-errors">0</div>
+					<div class="col-md-4" id="total-potential-errors">0</div>
+					
+				</div>
+			</div>
+		</section>
+		<section>
+        
+        <table id="insights-data" class="table table-striped" style="width:100%;">
+				<thead>
+					<tr>
+						<th>Page</th>
+						<th>Known</th>
+						<th>Likely</th>
+						<th>Potential</th>
+					</tr>
+				</thead>
+            <tbody class="results">
+                
+            </tbody>
+			</table>
+		</section>
+		<footer>
+			<p>OU Slackers © 2018 OUTC18</p>
+		</footer>
+		<!-- Latest compiled and minified JavaScript -->
+		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+	</body>
+</html>
