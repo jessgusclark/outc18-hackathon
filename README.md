@@ -1,4 +1,4 @@
-# outc18-hackathon: Directory Assets
+# outc18-hackathon: Directory Insights
 
 Pull in an accessibility report from OU Insights for an entire directory.
 
